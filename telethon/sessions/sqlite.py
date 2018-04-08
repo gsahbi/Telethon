@@ -5,6 +5,7 @@ from base64 import b64decode
 from os.path import isfile as file_exists
 from threading import Lock, RLock
 
+from telethon.sessions.schema import SCHEMA
 from .memory import MemorySession, _SentFileType
 from .. import utils
 from ..crypto import AuthKey
@@ -50,12 +51,15 @@ class SQLiteSession(MemorySession):
 
         self._conn = None
         c = self._cursor()
-        c.execute("select name from sqlite_master "
-                  "where type='table' and name='version'")
-        if c.fetchone():
-            # Tables already exist, check for the version
-            c.execute("select version from version")
-            version = c.fetchone()[0]
+
+        # create schema if doesn't exist
+        c.executescript(SCHEMA)
+
+        # check version
+        result = c.execute("select version from version").fetchone()
+
+        if result:
+            version = result[0]
             if version != CURRENT_VERSION:
                 self._upgrade_database(old=version)
                 c.execute("delete from version")
@@ -71,35 +75,6 @@ class SQLiteSession(MemorySession):
 
             c.close()
         else:
-            # Tables don't exist, create new ones
-            self._create_table(
-                c,
-                "version (version integer primary key)"
-                ,
-                """sessions (
-                    dc_id integer primary key,
-                    server_address text,
-                    port integer,
-                    auth_key blob
-                )"""
-                ,
-                """entities (
-                    id integer primary key,
-                    hash integer not null,
-                    username text,
-                    phone integer,
-                    name text
-                )"""
-                ,
-                """sent_files (
-                    md5_digest blob,
-                    file_size integer,
-                    type integer,
-                    id integer,
-                    hash integer,
-                    primary key(md5_digest, file_size, type)
-                )"""
-            )
             c.execute("insert into version values (?)", (CURRENT_VERSION,))
             # Migrating from JSON -> new table and may have entities
             if entities:
