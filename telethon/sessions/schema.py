@@ -36,14 +36,28 @@ update_state (
     date integer,
     pts integer,
     qts integer,
-    seq integer,
-    unread_count integer
+    seq integer
 );
 
 CREATE TRIGGER IF NOT EXISTS delete_update_state_trigger
-after delete on "sessions" for each row
-begin
-    delete from update_state where update_state.session_id = old.dc_id;
-end;
+AFTER DELETE ON "sessions" FOR EACH ROW
+BEGIN
+    DELETE FROM update_state WHERE update_state.session_id = old.dc_id;
+END;
 
+CREATE TRIGGER IF NOT EXISTS insert_update_state_trigger
+AFTER INSERT ON "sessions" FOR EACH ROW
+BEGIN
+    INSERT OR REPLACE INTO update_state(session_id, `date`, pts, qts, seq) 
+    VALUES (new.dc_id, CURRENT_TIMESTAMP, 0,0,0);
+END;
+"""
+
+UPSERT_UPDATE_STATE = """
+INSERT OR REPLACE INTO update_state(session_id, `date`, pts, qts, seq) 
+VALUES (?, ?, ?, ?, ?)
+"""
+
+GET_UPDATE_STATE = """
+SELECT `date`, pts, qts, seq FROM update_state WHERE session_id=?
 """

@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import sqlite3
@@ -5,7 +6,7 @@ from base64 import b64decode
 from os.path import isfile as file_exists
 from threading import Lock, RLock
 
-from telethon.sessions.schema import SCHEMA
+from telethon.sessions.schema import *
 from .memory import MemorySession, _SentFileType
 from .. import utils
 from ..crypto import AuthKey
@@ -296,3 +297,14 @@ class SQLiteSession(MemorySession):
                     instance.id, instance.access_hash
             ))
             self.save()
+
+    def _get_update_state(self, session_id):
+        return self._fetchone_entity(GET_UPDATE_STATE, (session_id,))
+
+    def _save_update_state(self, date, pts, qts, seq):
+        if isinstance(date, datetime.datetime):
+            date = int(date.timestamp())
+
+        with self._db_lock:
+            self._cursor().execute(UPSERT_UPDATE_STATE, (self._dc_id, date, pts, qts, seq))
+
